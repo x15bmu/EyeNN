@@ -39,12 +39,16 @@ Booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)}
 
 
 # Change there flags to control what happens.
-doLoad = True # Load checkpoint at the beginning
-doTest = False # Only run test, no training
+doLoad = True  # Load checkpoint at the beginning
+doTest = False  # Only run test, no training
+useCuda = torch.cuda.is_available()
 
 workers = 8
 epochs = 100
-batch_size = 30 #torch.cuda.device_count()*100 # Change if out of cuda memory
+if useCuda:
+    torch.cuda.device_count()*30  # Change if out of cuda memory
+else:
+    batch_size = 30
 
 base_lr = 0.0001
 momentum = 0.9
@@ -57,14 +61,19 @@ lr = base_lr
 count_test = 0
 count = 0
 
-
+CHECKPOINTS_PATH = '.'
+INCEPTION_FILENAME = 'checkpoint_inception.pth.tar'
+INIT_FILENAME = 'checkpoint.pth.tar'
 
 def main():
     global args, best_prec1, weight_decay, momentum
 
-    model = ITrackerModel()
-    #model = torch.nn.DataParallel(model)
-    imSize=(224,224)
+    inception_exists = os.path.isfile(get_checkpoint_path(INCEPTION_FILENAME))
+    model = ITrackerModel(use_pretrained_inception=not inception_exists)
+    if useCuda:
+        model = torch.nn.DataParallel(model)
+    model = try_cuda(model)
+    imSize=(224, 224)
     cudnn.benchmark = True   
 
     epoch = 0
@@ -101,7 +110,7 @@ def main():
         batch_size=batch_size, shuffle=False,
         num_workers=workers, pin_memory=True)
 
-    criterion = nn.MSELoss()
+    criterion = try_cuda(nn.MSELoss())
     optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr,
                                 momentum=momentum,
                                 weight_decay=weight_decay)
@@ -149,11 +158,11 @@ def train(train_loader, model, criterion,optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
         
-        imFace = torch.autograd.Variable(imFace)
-        imEyeL = torch.autograd.Variable(imEyeL)
-        imEyeR = torch.autograd.Variable(imEyeR)
-        faceGrid = torch.autograd.Variable(faceGrid)
-        gaze = torch.autograd.Variable(gaze)
+        imFace = try_cuda(torch.autograd.Variable(imFace), async=True)
+        imEyeL = try_cuda(torch.autograd.Variable(imEyeL), async=True)
+        imEyeR = try_cuda(torch.autograd.Variable(imEyeR), async=True)
+        faceGrid = try_cuda(torch.autograd.Variable(faceGrid), async=True)
+        gaze = try_cuda(torch.autograd.Variable(gaze), async=True)
 
         # compute output
         output = model(imFace, imEyeL, imEyeR, faceGrid)
@@ -171,14 +180,15 @@ def train(train_loader, model, criterion,optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        count=count+1
+        count += 1
 
         print('Epoch (train): [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses))
+              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+              'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+              'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(
+                    epoch, i, len(train_loader), batch_time=batch_time,
+                    data_time=data_time, loss=losses))
+
 
 def validate(val_loader, model, criterion, epoch):
     global count_test
@@ -196,12 +206,17 @@ def validate(val_loader, model, criterion, epoch):
     for i, (row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(val_loader):
         # measure data loading time
         data_time.update(time.time() - end)
-        
-        imFace = torch.autograd.Variable(imFace, volatile = True)
-        imEyeL = torch.autograd.Variable(imEyeL, volatile = True)
-        imEyeR = torch.autograd.Variable(imEyeR, volatile = True)
-        faceGrid = torch.autograd.Variable(faceGrid, volatile = True)
-        gaze = torch.autograd.Variable(gaze, volatile = True)
+        imFace = try_cuda(imFace, async=True)
+        imEyeL = try_cuda(imEyeL, async=True)
+        imEyeR = try_cuda(imEyeR, async=True)
+        faceGrid = try_cuda(faceGrid, async=True)
+        gaze = try_cuda(gaze, async=True)
+
+        imFace = torch.autograd.Variable(imFace, volatile=True)
+        imEyeL = torch.autograd.Variable(imEyeL, volatile=True)
+        imEyeR = torch.autograd.Variable(imEyeR, volatile=True)
+        faceGrid = torch.autograd.Variable(faceGrid, volatile=True)
+        gaze = torch.autograd.Variable(gaze, volatile=True)
 
         # compute output
         output = model(imFace, imEyeL, imEyeR, faceGrid)
@@ -213,7 +228,7 @@ def validate(val_loader, model, criterion, epoch):
         lossLin = torch.sum(lossLin,1)
         lossLin = torch.mean(torch.sqrt(lossLin))
 
-        losses.update(oss.data[0], imFace.size(0))
+        losses.update(loss.data[0], imFace.size(0))
         lossesLin.update(lossLin.data[0], imFace.size(0))
      
         # compute gradient and do SGD step
@@ -221,40 +236,57 @@ def validate(val_loader, model, criterion, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-
         print('Epoch (val): [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Error L2 {lossLin.val:.4f} ({lossLin.avg:.4f})\t'.format(
+              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+              'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+              'Error L2 {lossLin.val:.4f} ({lossLin.avg:.4f})\t'.format(
                     epoch, i, len(val_loader), batch_time=batch_time,
-                   loss=losses,lossLin=lossesLin))
+                    loss=losses, lossLin=lossesLin))
 
     return lossesLin.avg
 
-CHECKPOINTS_PATH = '.'
 
-def load_checkpoint(filename='checkpoint.pth.tar'):
-    filename = os.path.join(CHECKPOINTS_PATH, filename)
-    print(filename)
+def load_checkpoint():
+    # First try loading the inception file
+    filename = get_checkpoint_path(INCEPTION_FILENAME)
+    print('Inception filename: ', filename)
+
+    if not os.path.isfile(filename):
+        # If the inception file doesn't exist, try loading the init file
+        filename = get_checkpoint_path(INIT_FILENAME)
+        print('Init filename: ', filename)
+
     if not os.path.isfile(filename):
         return None
-    state = torch.load(filename, map_location=lambda storage, loc: storage)
+
+    if useCuda:
+        state = torch.load(filename)
+    else:
+        state = torch.load(filename, map_location=lambda storage, loc: storage)
     return state
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+
+def save_checkpoint(state, is_best):
     if not os.path.isdir(CHECKPOINTS_PATH):
         os.makedirs(CHECKPOINTS_PATH, 0o777)
-    bestFilename = os.path.join(CHECKPOINTS_PATH, 'best_' + filename)
-    filename = os.path.join(CHECKPOINTS_PATH, filename)
+    best_filename = get_checkpoint_path('best_' + INCEPTION_FILENAME)
+    filename = get_checkpoint_path(INCEPTION_FILENAME)
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, bestFilename)
+        shutil.copyfile(filename, best_filename)
+
+
+def get_checkpoint_path(filename):
+    return os.path.join(CHECKPOINTS_PATH, filename)
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
-        self.reset()
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
 
     def reset(self):
         self.val = 0
@@ -274,6 +306,17 @@ def adjust_learning_rate(optimizer, epoch):
     lr = base_lr * (0.1 ** (epoch // 30))
     for param_group in optimizer.state_dict()['param_groups']:
         param_group['lr'] = lr
+
+
+def try_cuda(x, **kwargs):
+    """
+    Calls cuda on x if available
+    :param x: The object to call cuda on.
+    :return: Returns the object with cuda called if available.
+    """
+    if useCuda:
+        return x.cuda(**kwargs)
+    return x
 
 
 if __name__ == "__main__":
