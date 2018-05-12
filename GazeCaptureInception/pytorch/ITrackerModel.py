@@ -108,14 +108,14 @@ class Identity(nn.Module):
 
 
 class ITrackerModel(nn.Module):
-    def __init__(self):
+    def __init__(self, use_pretrained_inception):
         super(ITrackerModel, self).__init__()
         self.eyeModel = ItrackerImageModel()
         self.faceModel = FaceImageModel()
         self.gridModel = FaceGridModel()
 
         # Create an inception network, but remove the fully connected layer, so we can use our own.
-        self.inception = models.inception_v3(pretrained=True)
+        self.inception = models.inception_v3(pretrained=use_pretrained_inception)
         self.inception.aux_logits = False
         fc_in_features = self.inception.fc.in_features
         self.inception.fc = Identity()
