@@ -83,8 +83,11 @@ def main():
             print('Loading checkpoint for epoch %05d with error %.5f...' % (saved['epoch'], saved['best_prec1']))
             state_dict = model.state_dict()
             state = saved['state_dict']
-            del state['eyesFC.0.weight']
-            del state['eyesFC.0.bias']
+            if not os.path.isfile(get_checkpoint_path(INCEPTION_FILENAME)):
+                # Delete the connected layers if not the Inception file because
+                # the modified network does not have these.
+                del state['eyesFC.0.weight']
+                del state['eyesFC.0.bias']
             state_dict.update(state)
             try:
                 model.module.load_state_dict(state_dict)
