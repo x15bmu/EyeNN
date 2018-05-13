@@ -138,7 +138,6 @@ class ITrackerModel(nn.Module):
             param.requires_grad = False
 
     def forward(self, faces, eyesLeft, eyesRight, faceGrids):
-        print(eyesLeft.size(), eyesRight.size())
         # Eye nets
         xEyeL = self.inception(eyesLeft)
         xEyeR = self.inception(eyesRight)
