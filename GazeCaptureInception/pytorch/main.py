@@ -1,4 +1,5 @@
 import math, shutil, os, time
+from collections import OrderedDict
 import numpy as np
 import scipy.io as sio
 
@@ -41,12 +42,17 @@ Booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)}
 # Change there flags to control what happens.
 doLoad = True  # Load checkpoint at the beginning
 doTest = False  # Only run test, no training
-useCuda = torch.cuda.is_available()
+use_cuda = torch.cuda.is_available()
+
+if use_cuda:
+    print('Using Cuda')
+else:
+    print('No Cuda')
 
 workers = 8
 epochs = 100
-if useCuda:
-    torch.cuda.device_count()*30  # Change if out of cuda memory
+if use_cuda:
+    batch_size = torch.cuda.device_count()*30  # Change if out of cuda memory
 else:
     batch_size = 30
 
@@ -70,7 +76,7 @@ def main():
 
     inception_exists = os.path.isfile(get_checkpoint_path(INCEPTION_FILENAME))
     model = ITrackerModel(use_pretrained_inception=not inception_exists)
-    if useCuda:
+    if use_cuda:
         model = torch.nn.DataParallel(model)
     model = try_cuda(model)
     imSize=(224, 224)
@@ -83,11 +89,33 @@ def main():
             print('Loading checkpoint for epoch %05d with error %.5f...' % (saved['epoch'], saved['best_prec1']))
             state_dict = model.state_dict()
             state = saved['state_dict']
+
+            if isinstance(model, torch.nn.DataParallel):
+                temp_state = OrderedDict()
+                for k, v in state.items():
+                    if not k.startswith('module.'):
+                        k = 'module.' + k
+                    temp_state[k] = v
+                state = temp_state
+            else:
+                temp_state = OrderedDict()
+                for k, v in state.items():
+                    if k.startswith('module.'):
+                        k = k[len('module.'):]
+                    temp_state[k] = v
+                state = temp_state
+
             if not os.path.isfile(get_checkpoint_path(INCEPTION_FILENAME)):
                 # Delete the connected layers if not the Inception file because
                 # the modified network does not have these.
-                del state['eyesFC.0.weight']
-                del state['eyesFC.0.bias']
+                if 'eyesFC.0.weight' in state:
+                    del state['eyesFC.0.weight']
+                if 'module.eyesFC.0.weight' in state:
+                    del state['module.eyesFC.0.weight']
+                if 'eyesFC.0.bias' in state:
+                    del state['eyesFC.0.bias']
+                if 'module.eyesFC.0.bias' in state:
+                    del state['module.eyesFC.0.bias']
             state_dict.update(state)
             try:
                 model.module.load_state_dict(state_dict)
@@ -100,7 +128,7 @@ def main():
 
     
     dataTrain = ITrackerData(split='train', imSize = imSize)
-    dataVal = ITrackerData(split='test', imSize = imSize)
+    dataVal = ITrackerData(split='val', imSize = imSize)
 
     # Gotta mess with the train.
     train_loader = torch.utils.data.DataLoader(
@@ -262,7 +290,7 @@ def load_checkpoint():
     if not os.path.isfile(filename):
         return None
 
-    if useCuda:
+    if use_cuda:
         state = torch.load(filename)
     else:
         state = torch.load(filename, map_location=lambda storage, loc: storage)
@@ -270,12 +298,17 @@ def load_checkpoint():
 
 
 def save_checkpoint(state, is_best):
+    print('Saving checkpoint')
     if not os.path.isdir(CHECKPOINTS_PATH):
         os.makedirs(CHECKPOINTS_PATH, 0o777)
     best_filename = get_checkpoint_path('best_' + INCEPTION_FILENAME)
     filename = get_checkpoint_path(INCEPTION_FILENAME)
+    # Make a backup copy in case there's a crash while writing.
+    shutil.copyfile(filename, filename + '.bak')
     torch.save(state, filename)
     if is_best:
+        # Make a backup copy in case there's a crash while writing.
+        shutil.copyfile(best_filename, best_filename + '.bak')
         shutil.copyfile(filename, best_filename)
 
 
@@ -317,7 +350,7 @@ def try_cuda(x, **kwargs):
     :param x: The object to call cuda on.
     :return: Returns the object with cuda called if available.
     """
-    if useCuda:
+    if use_cuda:
         return x.cuda(**kwargs)
     return x
 
