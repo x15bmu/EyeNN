@@ -12,10 +12,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-<<<<<<< HEAD
 from tensorboardX import SummaryWriter
-=======
->>>>>>> 6eeaee7db6439ede398cff326b4af85c4e90d6b9
 
 from ITrackerData import ITrackerData
 from ITrackerModel import ITrackerModel
@@ -190,8 +187,13 @@ def train(train_loader, model, criterion,optimizer, epoch):
 
     end = time.time()
 
-    for i, (row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader):
-        
+    for i, val in enumerate(train_loader):
+        if val is None:
+            print('Skipping Epoch (val) [{0}][{1}/{2}]'.format(epoch, i, len(train_loader)))
+            continue
+
+        row, imFace, imEyeL, imEyeR, faceGrid, gaze = val
+
         # measure data loading time
         data_time.update(time.time() - end)
         
@@ -248,7 +250,12 @@ def validate(val_loader, model, criterion, epoch):
 
 
     oIndex = 0
-    for i, (row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(val_loader):
+    for i, val in enumerate(val_loader):
+        if val is None:
+            print('Skipping Epoch (val) [{0}][{1}/{2}]'.format(epoch, i, len(val_loader)))
+            continue
+
+        row, imFace, imEyeL, imEyeR, faceGrid, gaze = val
         # measure data loading time
         data_time.update(time.time() - end)
         imFace = try_cuda(imFace, async=True)
@@ -321,7 +328,6 @@ def save_checkpoint(state, is_best):
     best_filename = get_checkpoint_path('best_' + INCEPTION_FILENAME)
     filename = get_checkpoint_path(INCEPTION_FILENAME)
     # Make a backup copy in case there's a crash while writing.
-<<<<<<< HEAD
     if os.path.isfile(filename):
         shutil.copyfile(filename, filename + '.bak')
     torch.save(state, filename)
@@ -329,13 +335,6 @@ def save_checkpoint(state, is_best):
         # Make a backup copy in case there's a crash while writing.
         if os.path.isfile(best_filename):
             shutil.copyfile(best_filename, best_filename + '.bak')
-=======
-    shutil.copyfile(filename, filename + '.bak')
-    torch.save(state, filename)
-    if is_best:
-        # Make a backup copy in case there's a crash while writing.
-        shutil.copyfile(best_filename, best_filename + '.bak')
->>>>>>> 6eeaee7db6439ede398cff326b4af85c4e90d6b9
         shutil.copyfile(filename, best_filename)
 
 
