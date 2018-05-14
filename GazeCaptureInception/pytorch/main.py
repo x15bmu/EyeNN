@@ -188,7 +188,7 @@ def train(train_loader, model, criterion,optimizer, epoch):
     end = time.time()
 
     for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader):
-        if success.data[0] == 0:
+        if not np.all(success.data.numpy()):
             print('Skipping Epoch (train) [{0}][{1}/{2}]'.format(epoch, i, len(train_loader)))
             continue
 
@@ -249,11 +249,10 @@ def validate(val_loader, model, criterion, epoch):
 
     oIndex = 0
     for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze)in enumerate(val_loader):
-        if success.data[0] == 0:
+        if not np.all(success.data.numpy()):
             print('Skipping Epoch (val) [{0}][{1}/{2}]'.format(epoch, i, len(val_loader)))
             continue
 
-        row, imFace, imEyeL, imEyeR, faceGrid, gaze = val
         # measure data loading time
         data_time.update(time.time() - end)
         imFace = try_cuda(imFace, async=True)
