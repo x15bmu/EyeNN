@@ -12,7 +12,10 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+<<<<<<< HEAD
 from tensorboardX import SummaryWriter
+=======
+>>>>>>> 6eeaee7db6439ede398cff326b4af85c4e90d6b9
 
 from ITrackerData import ITrackerData
 from ITrackerModel import ITrackerModel
@@ -288,7 +291,6 @@ def validate(val_loader, model, criterion, epoch):
                     epoch, i, len(val_loader), batch_time=batch_time,
                     loss=losses, lossLin=lossesLin))
 
-
     return lossesLin.avg
 
 
@@ -319,6 +321,7 @@ def save_checkpoint(state, is_best):
     best_filename = get_checkpoint_path('best_' + INCEPTION_FILENAME)
     filename = get_checkpoint_path(INCEPTION_FILENAME)
     # Make a backup copy in case there's a crash while writing.
+<<<<<<< HEAD
     if os.path.isfile(filename):
         shutil.copyfile(filename, filename + '.bak')
     torch.save(state, filename)
@@ -326,6 +329,13 @@ def save_checkpoint(state, is_best):
         # Make a backup copy in case there's a crash while writing.
         if os.path.isfile(best_filename):
             shutil.copyfile(best_filename, best_filename + '.bak')
+=======
+    shutil.copyfile(filename, filename + '.bak')
+    torch.save(state, filename)
+    if is_best:
+        # Make a backup copy in case there's a crash while writing.
+        shutil.copyfile(best_filename, best_filename + '.bak')
+>>>>>>> 6eeaee7db6439ede398cff326b4af85c4e90d6b9
         shutil.copyfile(filename, best_filename)
 
 
