@@ -4,6 +4,7 @@
 **/raw
 **/*.jpg
 **/*.png
+**/*.mov
 venv/
 *.iml
 .idea/
