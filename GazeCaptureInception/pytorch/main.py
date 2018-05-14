@@ -12,6 +12,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+from tensorboardX import SummaryWriter
 
 from ITrackerData import ITrackerData
 from ITrackerModel import ITrackerModel
@@ -67,6 +68,7 @@ lr = base_lr
 count_test = 0
 count = 0
 
+LOG_DIR = 'runs/1'
 CHECKPOINTS_PATH = '.'
 INCEPTION_FILENAME = 'checkpoint_inception.pth.tar'
 INIT_FILENAME = 'checkpoint.pth.tar'
@@ -175,6 +177,7 @@ def main():
 
 def train(train_loader, model, criterion,optimizer, epoch):
     global count
+    writer = SummaryWriter(log_dir=LOG_DIR)
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -213,16 +216,24 @@ def train(train_loader, model, criterion,optimizer, epoch):
 
         count += 1
 
+        step = epoch * len(train_loader) + i
+        for name, param in model.named_parameters():
+            writer.add_scalar(name + '_mag', np.linalg.norm(param.clone().cpu().data.numpy()), global_step=step)
+
+        writer.add_scalar('train_loss', losses.val, global_step=step)
+
         print('Epoch (train): [{0}][{1}/{2}]\t'
               'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
               'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
               'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(
                     epoch, i, len(train_loader), batch_time=batch_time,
                     data_time=data_time, loss=losses))
+    writer.close()
 
 
 def validate(val_loader, model, criterion, epoch):
     global count_test
+    writer = SummaryWriter(log_dir=LOG_DIR)
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -267,12 +278,16 @@ def validate(val_loader, model, criterion, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        step = epoch * len(val_loader) + i
+        writer.add_scalar('val_loss', losses.val, global_step=step)
+
         print('Epoch (val): [{0}][{1}/{2}]\t'
               'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
               'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
               'Error L2 {lossLin.val:.4f} ({lossLin.avg:.4f})\t'.format(
                     epoch, i, len(val_loader), batch_time=batch_time,
                     loss=losses, lossLin=lossesLin))
+
 
     return lossesLin.avg
 
@@ -304,11 +319,13 @@ def save_checkpoint(state, is_best):
     best_filename = get_checkpoint_path('best_' + INCEPTION_FILENAME)
     filename = get_checkpoint_path(INCEPTION_FILENAME)
     # Make a backup copy in case there's a crash while writing.
-    shutil.copyfile(filename, filename + '.bak')
+    if os.path.isfile(filename):
+        shutil.copyfile(filename, filename + '.bak')
     torch.save(state, filename)
     if is_best:
         # Make a backup copy in case there's a crash while writing.
-        shutil.copyfile(best_filename, best_filename + '.bak')
+        if os.path.isfile(best_filename):
+            shutil.copyfile(best_filename, best_filename + '.bak')
         shutil.copyfile(filename, best_filename)
 
 
