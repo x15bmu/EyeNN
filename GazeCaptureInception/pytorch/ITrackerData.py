@@ -151,6 +151,7 @@ class ITrackerData(data.Dataset):
 
     def __getitem__(self, index):
         index = self.indices[index]
+        row = torch.LongTensor([int(index)])
 
         imFacePath = os.path.join(DATASET_PATH, '%05d/appleFace/%05d.jpg' % (self.metadata['labelRecNum'][index], self.metadata['frameIndex'][index]))
         imEyeLPath = os.path.join(DATASET_PATH, '%05d/appleLeftEye/%05d.jpg' % (self.metadata['labelRecNum'][index], self.metadata['frameIndex'][index]))
@@ -170,13 +171,21 @@ class ITrackerData(data.Dataset):
             faceGrid = self.makeGrid(self.metadata['labelFaceGrid'][index,:])
 
             # to tensor
-            row = torch.LongTensor([int(index)])
             faceGrid = torch.FloatTensor(faceGrid)
             gaze = torch.FloatTensor(gaze)
 
-            return row, imFace, imEyeL, imEyeR, faceGrid, gaze
+            success = torch.LongTensor([1])
         except RuntimeError as e:
-            return None
+            def empty_image():
+                return Image.new("RGB", self.imSize, "white")
+            success = torch.LongTensor([0])
+            imFace = self.transformFace(empty_image())
+            imEyeL = self.transformEyeL(empty_image())
+            imEyeR = self.transformEyeR(empty_image())
+            faceGrid = torch.FloatTensor(self.makeGrid([0, 0, 0, 0]))
+            gaze = torch.FloatTensor([1.0, 1.0])
+
+        return success, row, imFace, imEyeL, imEyeR, faceGrid, gaze
 
     def __len__(self):
         return len(self.indices)
