@@ -156,6 +156,8 @@ def main():
         validate(val_loader, model, criterion, epoch)
         return
 
+    # There's a bug here which causes epoch = epoch - 1. However, the checkpoint is already
+    # saved with the higher number epoch, so we'll just always add 1 when saving the epoch instead.
     for epoch in range(0, epoch):
         adjust_learning_rate(optimizer, epoch)
         
@@ -191,7 +193,11 @@ def train(train_loader, model, criterion,optimizer, epoch, minibatch):
 
     end = time.time()
 
-    for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader, start=minibatch):
+    for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader):
+        # Skip all batches which have already been looked at.
+        if i < minibatch:
+            continue
+
         if not np.all(success.data.numpy()):
             print('Skipping Epoch (train) [{0}][{1}/{2}]'.format(epoch, i, len(train_loader)))
             continue
@@ -238,8 +244,8 @@ def train(train_loader, model, criterion,optimizer, epoch, minibatch):
 
         if i % 100 == 0:
             save_checkpoint({
-                'epoch': epoch,
-                'minibatch': i+1,
+                'epoch': epoch + 1,  # Add 1 to epoch because of silly bug.
+                'minibatch': i + 1,
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
             }, False)
