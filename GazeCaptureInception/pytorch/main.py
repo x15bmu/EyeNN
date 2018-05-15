@@ -53,7 +53,7 @@ else:
 workers = 8
 epochs = 100
 if use_cuda:
-    batch_size = torch.cuda.device_count()*30  # Change if out of cuda memory
+    batch_size = torch.cuda.device_count()*20  # Change if out of cuda memory
 else:
     batch_size = 30
 
