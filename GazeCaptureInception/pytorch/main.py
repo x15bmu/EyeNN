@@ -85,6 +85,7 @@ def main():
     cudnn.benchmark = True   
 
     epoch = 0
+    minibatch = 0
     if doLoad:
         saved = load_checkpoint()
         if saved:
@@ -125,8 +126,10 @@ def main():
                 model.load_state_dict(state_dict)
             epoch = saved['epoch']
             best_prec1 = saved['best_prec1']
+            if 'minibatch' in saved:
+                minibatch = saved['minibatch']
         else:
-            print('Warning: Could not read checkpoint!');
+            print('Warning: Could not read checkpoint!')
 
     
     dataTrain = ITrackerData(split='train', imSize = imSize)
@@ -160,14 +163,15 @@ def main():
         adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
+        train(train_loader, model, criterion, optimizer, epoch, minibatch)
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch)
 
-        # remember best prec@1 and save checkpoint
+        # remember best prec@1, set minibatch to zero, and save checkpoint
         is_best = prec1 < best_prec1
         best_prec1 = min(prec1, best_prec1)
+        minibatch = 0
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
@@ -175,7 +179,7 @@ def main():
         }, is_best)
 
 
-def train(train_loader, model, criterion,optimizer, epoch):
+def train(train_loader, model, criterion,optimizer, epoch, minibatch):
     global count
     writer = SummaryWriter(log_dir=LOG_DIR)
     batch_time = AverageMeter()
@@ -187,7 +191,7 @@ def train(train_loader, model, criterion,optimizer, epoch):
 
     end = time.time()
 
-    for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader):
+    for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader, start=minibatch):
         if not np.all(success.data.numpy()):
             print('Skipping Epoch (train) [{0}][{1}/{2}]'.format(epoch, i, len(train_loader)))
             continue
@@ -231,6 +235,14 @@ def train(train_loader, model, criterion,optimizer, epoch):
               'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(
                     epoch, i, len(train_loader), batch_time=batch_time,
                     data_time=data_time, loss=losses))
+
+        if i % 100 == 0:
+            save_checkpoint({
+                'epoch': epoch,
+                'minibatch': i+1,
+                'state_dict': model.state_dict(),
+                'best_prec1': best_prec1,
+            }, False)
     writer.close()
 
 
