@@ -305,6 +305,7 @@ def validate(val_loader, model, criterion, epoch):
 
         step = epoch * len(val_loader) + i
         writer.add_scalar('val_loss', losses.val, global_step=step)
+        writer.add_scalar('val_l2_loss', lossesLin.val, global_step=step)
 
         print('Epoch (val): [{0}][{1}/{2}]\t'
               'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
