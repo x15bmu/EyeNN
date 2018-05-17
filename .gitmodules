@@ -1,0 +1,3 @@
+[submodule "GazeCapture"]
+	path = GazeCapture
+	url = git@github.com:CSAILVision/GazeCapture.git
