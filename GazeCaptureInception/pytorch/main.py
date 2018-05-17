@@ -194,9 +194,9 @@ def train(train_loader, model, criterion,optimizer, epoch, minibatch):
     end = time.time()
 
     for i, (success, row, imFace, imEyeL, imEyeR, faceGrid, gaze) in enumerate(train_loader):
-        # Skip all batches which have already been looked at.
-        if i < minibatch:
-            continue
+        # Batches are shuffled so just quit after i has exceeded the number of batches.
+        if i > len(train_loader):
+            break
 
         if not np.all(success.data.numpy()):
             print('Skipping Epoch (train) [{0}][{1}/{2}]'.format(epoch, i, len(train_loader)))
@@ -279,24 +279,25 @@ def validate(val_loader, model, criterion, epoch):
         faceGrid = try_cuda(faceGrid, async=True)
         gaze = try_cuda(gaze, async=True)
 
-        imFace = torch.autograd.Variable(imFace, volatile=True)
-        imEyeL = torch.autograd.Variable(imEyeL, volatile=True)
-        imEyeR = torch.autograd.Variable(imEyeR, volatile=True)
-        faceGrid = torch.autograd.Variable(faceGrid, volatile=True)
-        gaze = torch.autograd.Variable(gaze, volatile=True)
+        with torch.no_grad():
+            imFace = torch.autograd.Variable(imFace)
+            imEyeL = torch.autograd.Variable(imEyeL)
+            imEyeR = torch.autograd.Variable(imEyeR)
+            faceGrid = torch.autograd.Variable(faceGrid)
+            gaze = torch.autograd.Variable(gaze)
 
-        # compute output
-        output = model(imFace, imEyeL, imEyeR, faceGrid)
+            # compute output
+            output = model(imFace, imEyeL, imEyeR, faceGrid)
 
-        loss = criterion(output, gaze)
-        
-        lossLin = output - gaze
-        lossLin = torch.mul(lossLin,lossLin)
-        lossLin = torch.sum(lossLin,1)
-        lossLin = torch.mean(torch.sqrt(lossLin))
+            loss = criterion(output, gaze)
 
-        losses.update(loss.data[0], imFace.size(0))
-        lossesLin.update(lossLin.data[0], imFace.size(0))
+            lossLin = output - gaze
+            lossLin = torch.mul(lossLin,lossLin)
+            lossLin = torch.sum(lossLin,1)
+            lossLin = torch.mean(torch.sqrt(lossLin))
+
+            losses.update(loss.data[0], imFace.size(0))
+            lossesLin.update(lossLin.data[0], imFace.size(0))
      
         # compute gradient and do SGD step
         # measure elapsed time
