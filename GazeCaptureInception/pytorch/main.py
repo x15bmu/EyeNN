@@ -117,8 +117,19 @@ def main():
                     del state['module.eyesFC.0.weight']
                 if 'eyesFC.0.bias' in state:
                     del state['eyesFC.0.bias']
+
+                # These need to be deleted because a batchnorm layer was added.
                 if 'module.eyesFC.0.bias' in state:
                     del state['module.eyesFC.0.bias']
+                if 'fc.2.weight' in state:
+                    del state['fc.2.weight']
+                if 'module.fc.2.weight' in state:
+                    del state['module.fc.2.weight']
+                if 'fc.2.bias' in state:
+                    del state['fc.2.bias']
+                if 'module.fc.2.bias' in state:
+                    del state['module.fc.2.bias']
+
             state_dict.update(state)
             try:
                 model.module.load_state_dict(state_dict)

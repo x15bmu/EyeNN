@@ -123,12 +123,16 @@ class ITrackerModel(nn.Module):
         # Joining both eyes
         self.eyesFC = nn.Sequential(
             nn.Linear(2*fc_in_features, 128),
+            nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
+            nn.Dropout(inplace=True)
         )
-        # Joining everything
+
         self.fc = nn.Sequential(
             nn.Linear(128+64+128, 128),
+            nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
+            nn.Dropout(inplace=True),
             nn.Linear(128, 2),
         )
 

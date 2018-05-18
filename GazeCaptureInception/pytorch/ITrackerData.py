@@ -76,30 +76,20 @@ class ITrackerData(data.Dataset):
         self.eyeLeftMean = loadMetadata(os.path.join(MEAN_PATH, 'mean_left_224.mat'))['image_mean']
         self.eyeRightMean = loadMetadata(os.path.join(MEAN_PATH, 'mean_right_224.mat'))['image_mean']
 
-
         self.transformFace = transforms.Compose([
             transforms.Scale(self.imSize),
             transforms.ToTensor(),
             SubtractMean(meanImg=self.faceMean),
         ])
-        # self.transformEyeL = transforms.Compose([
-        #     transforms.Scale(self.imSize),
-        #     transforms.ToTensor(),
-        #     SubtractMean(meanImg=self.eyeLeftMean),
-        # ])
-        # self.transformEyeR = transforms.Compose([
-        #     transforms.Scale(self.imSize),
-        #     transforms.ToTensor(),
-        #     SubtractMean(meanImg=self.eyeRightMean),
-        # ])
+        assert eyeSize[0] == eyeSize[1]
         self.transformEyeL = transforms.Compose([
-            transforms.Scale(eyeSize),
+            transforms.RandomResizedCrop(eyeSize[0], scale=(0.9, 1.0), ratio=(1, 1)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
         ])
         self.transformEyeR = transforms.Compose([
-            transforms.Scale(eyeSize),
+            transforms.RandomResizedCrop(eyeSize[0], scale=(0.9, 1.0), ratio=(1, 1)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
