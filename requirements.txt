@@ -2,6 +2,7 @@ numpy==1.14.2
 opencv-python==3.4.0.12
 scipy==1.0.1
 tensorboardX==1.2
-torch==0.3.1
-torchvision==0.2.0
+# This is actually torch 0.4.0, but that can't be installed via pip
+torch>=0.3.1
+torchvision>=0.2.0
 
