@@ -70,8 +70,8 @@ count = 0
 
 LOG_DIR = 'runs/1'
 CHECKPOINTS_PATH = '.'
-INCEPTION_FILENAME = 'checkpoint_inception.pth.tar'
-INIT_FILENAME = 'checkpoint.pth.tar'
+INCEPTION_FILENAME = 'checkpoint_face.pth.tar'
+INIT_FILENAME = 'checkpoint_inception.pth.tar'
 
 def main():
     global args, best_prec1, weight_decay, momentum
@@ -111,14 +111,15 @@ def main():
             if not os.path.isfile(get_checkpoint_path(INCEPTION_FILENAME)):
                 # Delete the connected layers if not the Inception file because
                 # the modified network does not have these.
-                if 'eyesFC.0.weight' in state:
-                    del state['eyesFC.0.weight']
-                if 'module.eyesFC.0.weight' in state:
-                    del state['module.eyesFC.0.weight']
-                if 'eyesFC.0.bias' in state:
-                    del state['eyesFC.0.bias']
-                if 'module.eyesFC.0.bias' in state:
-                    del state['module.eyesFC.0.bias']
+                pass
+                # if 'eyesFC.0.weight' in state:
+                #     del state['eyesFC.0.weight']
+                # if 'module.eyesFC.0.weight' in state:
+                #     del state['module.eyesFC.0.weight']
+                # if 'eyesFC.0.bias' in state:
+                #     del state['eyesFC.0.bias']
+                # if 'module.eyesFC.0.bias' in state:
+                #     del state['module.eyesFC.0.bias']
             state_dict.update(state)
             try:
                 model.module.load_state_dict(state_dict)
