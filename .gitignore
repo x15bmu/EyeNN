@@ -5,6 +5,7 @@
 **/*.jpg
 **/*.png
 **/*.mov
+**/*.caffemodel
 venv/
 *.iml
 .idea/
