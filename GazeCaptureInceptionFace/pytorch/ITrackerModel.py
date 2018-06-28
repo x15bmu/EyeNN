@@ -112,12 +112,15 @@ class ITrackerModel(nn.Module):
         super(ITrackerModel, self).__init__()
         self.eyeModel = ItrackerImageModel()
         self.faceModel = FaceImageModel()
+        self.faceModelInception = models.inception_v3(pretrained=use_pretrained_inception)
+        self.faceModelInception.aux_logits = False
+        fc_in_features = self.faceModelInception.fc.in_features
+        self.faceModelInception.fc = nn.Linear(fc_in_features, 64)
         self.gridModel = FaceGridModel()
 
         # Create an inception network, but remove the fully connected layer, so we can use our own.
-        self.inception = models.inception_v3(pretrained=use_pretrained_inception)
+        self.inception = models.inception_v3()
         self.inception.aux_logits = False
-        fc_in_features = self.inception.fc.in_features
         self.inception.fc = Identity()
 
         # Joining both eyes
@@ -132,7 +135,7 @@ class ITrackerModel(nn.Module):
             nn.Linear(128, 2),
         )
 
-        for param in self.faceModel.parameters():
+        for param in self.inception.parameters():
             param.requires_grad = False
         for param in self.gridModel.parameters():
             param.requires_grad = False
@@ -146,7 +149,7 @@ class ITrackerModel(nn.Module):
         xEyes = self.eyesFC(xEyes)
 
         # Face net
-        xFace = self.faceModel(faces)
+        xFace = self.faceModelInception(faces)
         xGrid = self.gridModel(faceGrids)
 
         # Cat all
